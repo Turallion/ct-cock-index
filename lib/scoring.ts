@@ -52,17 +52,17 @@ const bearishPhrases = ["it's over", "it’s over", "going lower", "dead cat bou
 const levels: LevelInfo[] = [
   {
     level: 0,
-    centimeters: 1,
-    label: "Pussy",
+    centimeters: 0.1,
+    label: "Sheet of Paper",
     comments: [
-      "The chart saw this account coming and chose self-defense.",
-      "Pure fear posting. The timeline shrank on contact.",
-      "A masterpiece of anti-conviction with catastrophic aura.",
+      "Technically exists. Barely measurable.",
+      "Technically exists. Barely measurable.",
+      "Technically exists. Barely measurable.",
     ],
     confidenceNotes: [
-      "Confidence low but the damage is obvious.",
-      "Confidence medium. Even the crumbs looked scared.",
-      "Confidence suspiciously high for something this tiny.",
+      "Precision required. Might need a microscope.",
+      "Precision required. Might need a microscope.",
+      "Precision required. Might need a microscope.",
     ],
   },
   {
