@@ -1,3 +1,5 @@
+import type { AnalyzedTweetInput, ProfileSignals } from "@/lib/types";
+
 const TWITTER_API_BASE = "https://api.twitterapi.io/twitter";
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
@@ -13,28 +15,73 @@ type UserInfoResponse = {
     profilePicture?: string;
     profile_image_url?: string;
     avatar?: string;
+    description?: string;
+    bio?: string;
+    createdAt?: string;
+    created_at?: string;
+    verified?: boolean;
+    isBlueVerified?: boolean;
+    followersCount?: number;
+    friendsCount?: number;
+    followingCount?: number;
     user?: {
       id?: string;
       profilePicture?: string;
       profile_image_url?: string;
       avatar?: string;
+      description?: string;
+      bio?: string;
+      createdAt?: string;
+      created_at?: string;
+      verified?: boolean;
+      isBlueVerified?: boolean;
+      followersCount?: number;
+      friendsCount?: number;
+      followingCount?: number;
     };
     data?: {
       id?: string;
       profilePicture?: string;
       profile_image_url?: string;
       avatar?: string;
+      description?: string;
+      bio?: string;
+      createdAt?: string;
+      created_at?: string;
+      verified?: boolean;
+      isBlueVerified?: boolean;
+      followersCount?: number;
+      friendsCount?: number;
+      followingCount?: number;
     };
   };
   id?: string;
   profilePicture?: string;
   profile_image_url?: string;
   avatar?: string;
+  description?: string;
+  bio?: string;
+  createdAt?: string;
+  created_at?: string;
+  verified?: boolean;
+  isBlueVerified?: boolean;
+  followersCount?: number;
+  friendsCount?: number;
+  followingCount?: number;
   user?: {
     id?: string;
     profilePicture?: string;
     profile_image_url?: string;
     avatar?: string;
+    description?: string;
+    bio?: string;
+    createdAt?: string;
+    created_at?: string;
+    verified?: boolean;
+    isBlueVerified?: boolean;
+    followersCount?: number;
+    friendsCount?: number;
+    followingCount?: number;
   };
   error?: string;
   message?: string;
@@ -46,11 +93,26 @@ export type TwitterTimelineTweet = {
   fullText?: string;
   createdAt?: string;
   created_at?: string;
+  likeCount?: number;
+  likes?: number;
+  favorite_count?: number;
+  retweetCount?: number;
+  retweets?: number;
+  repost_count?: number;
+  quoteCount?: number;
+  quotes?: number;
+  quote_count?: number;
+  viewCount?: number;
+  views?: number;
+  view_count?: number;
+  author?: {
+    followers?: number;
+  };
 };
 
 export type TwitterUserProfile = {
   id: string;
-  profileImageUrl: string | null;
+  profile: ProfileSignals;
 };
 
 type TimelineResponse = {
@@ -152,9 +214,81 @@ async function getUserIdByUsername(username: string) {
     payload.data?.user?.avatar ??
     null;
 
+  const bio =
+    payload.data?.data?.bio ??
+    payload.data?.data?.description ??
+    payload.data?.bio ??
+    payload.data?.description ??
+    payload.bio ??
+    payload.description ??
+    payload.user?.bio ??
+    payload.user?.description ??
+    payload.data?.user?.bio ??
+    payload.data?.user?.description ??
+    "";
+
+  const accountCreatedAt =
+    payload.data?.data?.createdAt ??
+    payload.data?.data?.created_at ??
+    payload.data?.createdAt ??
+    payload.data?.created_at ??
+    payload.createdAt ??
+    payload.created_at ??
+    payload.user?.createdAt ??
+    payload.user?.created_at ??
+    payload.data?.user?.createdAt ??
+    payload.data?.user?.created_at ??
+    null;
+
+  const followersCount =
+    payload.data?.data?.followersCount ??
+    payload.data?.data?.friendsCount ??
+    payload.data?.followersCount ??
+    payload.data?.friendsCount ??
+    payload.followersCount ??
+    payload.friendsCount ??
+    payload.user?.followersCount ??
+    payload.user?.friendsCount ??
+    payload.data?.user?.followersCount ??
+    payload.data?.user?.friendsCount ??
+    0;
+
+  const followingCount =
+    payload.data?.data?.followingCount ??
+    payload.data?.data?.friendsCount ??
+    payload.data?.followingCount ??
+    payload.data?.friendsCount ??
+    payload.followingCount ??
+    payload.friendsCount ??
+    payload.user?.followingCount ??
+    payload.user?.friendsCount ??
+    payload.data?.user?.followingCount ??
+    payload.data?.user?.friendsCount ??
+    0;
+
+  const verified = Boolean(
+    payload.data?.data?.verified ??
+      payload.data?.data?.isBlueVerified ??
+      payload.data?.verified ??
+      payload.data?.isBlueVerified ??
+      payload.verified ??
+      payload.isBlueVerified ??
+      payload.user?.verified ??
+      payload.user?.isBlueVerified ??
+      payload.data?.user?.verified ??
+      payload.data?.user?.isBlueVerified,
+  );
+
   return {
     id: userId,
-    profileImageUrl,
+    profile: {
+      profileImageUrl,
+      followersCount,
+      followingCount,
+      verified,
+      bio,
+      accountCreatedAt,
+    },
   };
 }
 
@@ -170,12 +304,12 @@ export async function getTweetsByUsername(username: string) {
 
   return {
     tweets: payload.data?.tweets ?? payload.tweets ?? [],
-    profileImageUrl: userProfile.profileImageUrl,
+    profile: userProfile.profile,
   };
 }
 
 export async function getLast30DaysTweetsByUsername(username: string) {
-  const { tweets, profileImageUrl } = await getTweetsByUsername(username);
+  const { tweets, profile } = await getTweetsByUsername(username);
 
   const cutoff = Date.now() - THIRTY_DAYS_MS;
 
@@ -186,10 +320,25 @@ export async function getLast30DaysTweetsByUsername(username: string) {
   });
 
   return {
-    profileImageUrl,
+    profile,
     tweets: recentTweets
-      .map((tweet) => tweet.text ?? tweet.fullText ?? "")
-      .map((text) => text.trim())
-      .filter(Boolean),
+      .map((tweet): AnalyzedTweetInput | null => {
+        const text = (tweet.text ?? tweet.fullText ?? "").trim();
+        const createdAt = tweet.createdAt ?? tweet.created_at ?? "";
+
+        if (!text || !createdAt) {
+          return null;
+        }
+
+        return {
+          text,
+          createdAt,
+          likeCount: tweet.likeCount ?? tweet.likes ?? tweet.favorite_count ?? 0,
+          retweetCount: tweet.retweetCount ?? tweet.retweets ?? tweet.repost_count ?? 0,
+          quoteCount: tweet.quoteCount ?? tweet.quotes ?? tweet.quote_count ?? 0,
+          viewCount: tweet.viewCount ?? tweet.views ?? tweet.view_count ?? 0,
+        };
+      })
+      .filter((tweet): tweet is AnalyzedTweetInput => tweet !== null),
   };
 }

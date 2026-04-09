@@ -11,16 +11,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Enter an X username to analyze." }, { status: 400 });
     }
 
-    const { tweets: recentTweetTexts, profileImageUrl } = await getLast30DaysTweetsByUsername(username);
+    const { tweets, profile } = await getLast30DaysTweetsByUsername(username);
 
-    if (recentTweetTexts.length === 0) {
+    if (tweets.length === 0) {
       return NextResponse.json(
         { error: "No tweets found in the last 30 days after filtering replies." },
         { status: 404 },
       );
     }
 
-    return NextResponse.json(scoreTweets(username, recentTweetTexts, profileImageUrl));
+    return NextResponse.json(scoreTweets(username, tweets, profile));
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unexpected error while analyzing account.";
     const normalized = message.toLowerCase();
