@@ -444,7 +444,7 @@ function computeScore(tweetAnalysis: TweetAnalysis, profile: ProfileSignals): Sc
     -4,
     4,
   );
-  const noiseComponent = Math.random() * 1.1 - 0.55;
+  const noiseComponent = Math.random() * 1.4 - 0.7;
   const rawScore =
     sentimentComponent * 1.8 +
     convictionComponent * 2.2 +
@@ -452,7 +452,7 @@ function computeScore(tweetAnalysis: TweetAnalysis, profile: ProfileSignals): Sc
     activityComponent * 0.8 +
     profileComponent * 0.6 +
     noiseComponent;
-  const adjustedScore = rawScore + 6.8;
+  const adjustedScore = rawScore * 1.15 + 5.9;
 
   return {
     sentimentComponent,
@@ -481,8 +481,8 @@ function mapScoreToLevel(score: number): LevelMappingResult {
 
 function getSizeForLevel(level: number, adjustedScore: number, levelProgress: number) {
   const range = levels[level].sizeRange;
-  const scoreBias = clamp((adjustedScore - 9) / 12, -0.25, 0.25);
-  const noise = Math.random() * 0.18 - 0.09;
+  const scoreBias = clamp((adjustedScore - 9) / 11, -0.3, 0.3);
+  const noise = Math.random() * 0.22 - 0.11;
   const progress = clamp(levelProgress + scoreBias + noise, 0, 1);
   const value = range.min + (range.max - range.min) * progress;
   return Number(value.toFixed(1));
