@@ -268,8 +268,48 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function pickRandom<T>(items: readonly T[]) {
-  return items[Math.floor(Math.random() * items.length)];
+function hashString(value: string) {
+  let hash = 2166136261;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return hash >>> 0;
+}
+
+function createSeededRandom(seedInput: string) {
+  let state = hashString(seedInput) || 1;
+
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 4294967296;
+  };
+}
+
+function pickRandom<T>(items: readonly T[], random: () => number) {
+  return items[Math.floor(random() * items.length)];
+}
+
+function buildSeedInput(username: string, tweets: AnalyzedTweetInput[], profile: ProfileSignals) {
+  const tweetsPart = tweets
+    .map(
+      (tweet) =>
+        `${tweet.createdAt}|${tweet.text}|${tweet.likeCount}|${tweet.retweetCount}|${tweet.quoteCount}|${tweet.viewCount}`,
+    )
+    .join("||");
+
+  return [
+    username.toLowerCase(),
+    profile.profileImageUrl ?? "",
+    profile.followersCount,
+    profile.followingCount,
+    profile.verified ? "1" : "0",
+    profile.bio,
+    profile.accountCreatedAt ?? "",
+    tweetsPart,
+  ].join("::");
 }
 
 function normalizeLogMetric(value: number, divisor: number) {
@@ -409,7 +449,7 @@ function analyzeProfile(profile: ProfileSignals) {
   };
 }
 
-function computeScore(tweetAnalysis: TweetAnalysis, profile: ProfileSignals): ScoreComponents {
+function computeScore(tweetAnalysis: TweetAnalysis, profile: ProfileSignals, random: () => number): ScoreComponents {
   const profileAnalysis = analyzeProfile(profile);
   const sentimentBase =
     tweetAnalysis.bullishHits * 0.7 +
@@ -444,7 +484,7 @@ function computeScore(tweetAnalysis: TweetAnalysis, profile: ProfileSignals): Sc
     -4,
     4,
   );
-  const noiseComponent = Math.random() * 1.4 - 0.7;
+  const noiseComponent = random() * 1.4 - 0.7;
   const rawScore =
     sentimentComponent * 1.8 +
     convictionComponent * 2.2 +
@@ -479,10 +519,10 @@ function mapScoreToLevel(score: number): LevelMappingResult {
   };
 }
 
-function getSizeForLevel(level: number, adjustedScore: number, levelProgress: number) {
+function getSizeForLevel(level: number, adjustedScore: number, levelProgress: number, random: () => number) {
   const range = levels[level].sizeRange;
   const scoreBias = clamp((adjustedScore - 9) / 11, -0.3, 0.3);
-  const noise = Math.random() * 0.22 - 0.11;
+  const noise = random() * 0.22 - 0.11;
   const progress = clamp(levelProgress + scoreBias + noise, 0, 1);
   const value = range.min + (range.max - range.min) * progress;
   return Number(value.toFixed(1));
@@ -512,11 +552,12 @@ export function scoreTweets(
   tweets: AnalyzedTweetInput[],
   profile: ProfileSignals,
 ): AnalysisResponse {
+  const random = createSeededRandom(buildSeedInput(username, tweets, profile));
   const tweetAnalysis = analyzeTweets(tweets);
-  const scoreComponents = computeScore(tweetAnalysis, profile);
+  const scoreComponents = computeScore(tweetAnalysis, profile, random);
   const levelMapping = mapScoreToLevel(scoreComponents.adjustedScore);
   const levelInfo = levels[levelMapping.level];
-  const centimeters = getSizeForLevel(levelInfo.level, scoreComponents.adjustedScore, levelMapping.levelProgress);
+  const centimeters = getSizeForLevel(levelInfo.level, scoreComponents.adjustedScore, levelMapping.levelProgress, random);
   const confidenceTier = getConfidenceTier(tweetAnalysis, tweets.length);
 
   return {
@@ -531,7 +572,7 @@ export function scoreTweets(
     level: levelInfo.level,
     centimeters,
     label: levelInfo.label,
-    comment: pickRandom(levelInfo.comments),
-    confidenceNote: pickRandom(confidenceNotesByTier[confidenceTier]),
+    comment: pickRandom(levelInfo.comments, random),
+    confidenceNote: pickRandom(confidenceNotesByTier[confidenceTier], random),
   };
 }
